@@ -114,7 +114,7 @@ const PaymentProof = () => {
 
         {/* Continue Button */}
         <div className="mt-8 flex justify-end">
-          <Link href="/next-page">
+          <Link href="/finalpage">
             <button
               disabled={!isButtonEnabled}
               className={`px-8 py-3 rounded-full text-white font-bold text-lg transition-all
