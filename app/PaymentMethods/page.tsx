@@ -148,22 +148,21 @@ const PaymentOptions: React.FC = () => {
   const canContinue = isConnected;
 
   return (
-    <div className={`payment-page-container bg-gradient-to-b from-gray-50 to-gray-100 ${mounted ? 'fade-in' : ''}`}>
-      <Script src="https://kit.fontawesome.com/18e66d329f.js"/>
+    <div className={`payment-container bg-gradient-to-b from-gray-50 to-gray-100 ${mounted ? 'fade-in' : ''}`}>
+      <Script src="https://kit.fontawesome.com/18e66d329f.js" />
       
-      <div className="header-container custom-purple text-white slide-down">
+      <div className="custom-purple text-white p-4 flex items-center justify-between shadow-lg slide-down">
         <i 
           className="fas fa-arrow-left header-icon clickable" 
           onClick={handleBack}
         ></i>
-        <h1 className="header-title">Pi Trader Official</h1>
+        <h1 className="text-2xl font-bold">Pi Trader Official</h1>
         <div></div>
       </div>
 
-      <div className="payment-content slide-up">
-        <div className="section-title fade-in">
-          <h2>Payment Methods</h2>
-          <p className="subtitle">Select your preferred payment method</p>
+      <div className="payment-content">
+        <div className="payment-header">
+          <h2 className="text-xl font-semibold custom-purple-text mb-4 fade-in-up">Select Payment Method</h2>
         </div>
 
         <div className="payment-methods-list">
@@ -208,7 +207,7 @@ const PaymentOptions: React.FC = () => {
           ))}
         </div>
 
-        <div className="connect-button-container scale-in">
+        <div className="connect-button-container slide-up">
           <button
             className={`connect-button ${
               (canConnect || isConnected) ? 'button-active' : 'button-disabled'
@@ -221,15 +220,15 @@ const PaymentOptions: React.FC = () => {
         </div>
       </div>
 
-      <div className="bottom-buttons slide-up-delayed">
+      <div className="bottom-buttons slide-up">
         <button 
-          className="cancel-button hover-scale"
+          className="cancel-button"
           onClick={handleBack}
         >
           Cancel
         </button>
         <button
-          className={`continue-button ${canContinue ? 'button-active' : 'button-disabled'} hover-scale`}
+          className={`continue-button ${canContinue ? 'button-active' : 'button-disabled'}`}
           onClick={handleContinue}
           disabled={!canContinue}
         >
