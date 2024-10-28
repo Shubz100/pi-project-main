@@ -36,6 +36,10 @@ const PaymentProof = () => {
       const userData = await response.json();
       setImageUploaded(userData.isUpload || false);
       setImageUrl(userData.imageUrl || null);
+      // If user already has a Pi address, populate it
+      if (userData.PiAddress) {
+        setPiAddress(userData.PiAddress);
+      }
     } catch (error) {
       console.error('Error fetching upload status:', error);
     }
@@ -109,7 +113,7 @@ const PaymentProof = () => {
             telegramId,
             amount: piAmount,
             imageUrl: imageUrl,
-            piAddress: piAddress
+            PiAddress: piAddress
           })
         });
         
