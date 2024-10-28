@@ -1,30 +1,122 @@
 'use client'
 
-import React, { useState, useRef, ChangeEvent } from 'react';
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const PaymentProof = () => {
+  const router = useRouter();
   const [piAmount, setPiAmount] = useState<string>('');
   const [imageUploaded, setImageUploaded] = useState<boolean>(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [telegramId, setTelegramId] = useState<number | null>(null);
   const walletAddress = 'GHHHjJhGgGfFfHjIuYrDc';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCopyAddress = (): void => {
-    navigator.clipboard.writeText(walletAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      const webAppUser = tg.initDataUnsafe?.user;
+      if (webAppUser) {
+        setTelegramId(webAppUser.id);
+        fetchUploadStatus(webAppUser.id);
+      }
+    }
+  }, []);
+
+  const fetchUploadStatus = async (userId: number): Promise<void> => {
+    try {
+      const response = await fetch(`/api/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId })
+      });
+      const userData = await response.json();
+      setImageUploaded(userData.isUpload || false);
+      setImageUrl(userData.imageUrl || null);
+    } catch (error) {
+      console.error('Error fetching upload status:', error);
+    }
   };
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>): void => {
-    if (e.target.files && e.target.files.length > 0) {
-      setImageUploaded(true);
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    if (e.target.files && e.target.files.length > 0 && telegramId) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('telegramId', telegramId.toString());
+
+      try {
+        const response = await fetch('/api/imageupload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+          setImageUploaded(true);
+          setImageUrl(data.imageUrl);
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+      }
+    }
+  };
+
+  const handleRemoveImage = async (): Promise<void> => {
+    if (telegramId) {
+      try {
+        const response = await fetch(`/api/imageupload?telegramId=${telegramId}`, {
+          method: 'DELETE',
+        });
+        const data = await response.json();
+        if (data.success) {
+          setImageUploaded(false);
+          setImageUrl(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      } catch (error) {
+        console.error('Error removing image:', error);
+      }
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy wallet address:', error);
     }
   };
 
   const calculateUSDT = (pi: string): string => {
     const amount = parseFloat(pi);
     return amount ? (amount * 0.65).toFixed(2) : '0.00';
+  };
+
+  const handleContinue = async () => {
+    if (telegramId && piAmount) {
+      try {
+        const response = await fetch('/api/piamount', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId,
+            amount: piAmount
+          })
+        });
+        
+        if (response.ok) {
+          router.push('/next-page');
+        }
+      } catch (error) {
+        console.error('Error saving pi amount:', error);
+      }
+    }
   };
 
   const isButtonEnabled = piAmount && imageUploaded;
@@ -86,7 +178,7 @@ const PaymentProof = () => {
               Payment Proof Screenshot
             </h2>
             <div
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !imageUploaded && fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
                 ${imageUploaded ? 'border-[#670773] bg-purple-50' : 'border-gray-300'}`}
             >
@@ -97,10 +189,27 @@ const PaymentProof = () => {
                 accept="image/*"
                 className="hidden"
               />
-              {imageUploaded ? (
+              {imageUploaded && imageUrl ? (
                 <div className="text-[#670773]">
                   <i className="fas fa-check-circle text-3xl mb-2"></i>
                   <p>Image uploaded successfully</p>
+                  <div className="mt-4 mb-4">
+                    <img 
+                      src={imageUrl} 
+                      alt="Payment proof" 
+                      className="max-w-full h-auto rounded-lg mx-auto"
+                      style={{ maxHeight: '200px' }}
+                    />
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveImage();
+                    }}
+                    className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Remove
+                  </button>
                 </div>
               ) : (
                 <div className="text-gray-500">
@@ -110,12 +219,11 @@ const PaymentProof = () => {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Continue Button */}
-        <div className="mt-8 flex justify-end">
-          <Link href="/finalpage">
+          {/* Continue Button */}
+          <div className="mt-8 flex justify-end">
             <button
+              onClick={handleContinue}
               disabled={!isButtonEnabled}
               className={`px-8 py-3 rounded-full text-white font-bold text-lg transition-all
                 ${isButtonEnabled 
@@ -124,26 +232,26 @@ const PaymentProof = () => {
             >
               Continue
             </button>
-          </Link>
+          </div>
         </div>
+
+        {/* Notification for copy */}
+        {copied && (
+          <div className="fixed bottom-4 right-4 bg-[#670773] text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in">
+            Address copied!
+          </div>
+        )}
+        
+        <style jsx>{`
+          @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
+          }
+        `}</style>
       </div>
-
-      {/* Notification for copy */}
-      {copied && (
-        <div className="fixed bottom-4 right-4 bg-[#670773] text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in">
-          Address copied!
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };
