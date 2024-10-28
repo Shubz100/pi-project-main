@@ -1,24 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { WebApp } from '@twa-dev/types'
 import Script from 'next/script'
 
-export default function SummaryPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp: WebApp
+    }
+  }
+}
+
+interface UserData {
+  piAmount: number[]
+  paymentMethod: string
+  paymentAddress: string
+  PiAddress: string
+}
+
+export default function Summary() {
+  const [userData, setUserData] = useState<UserData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [editableFields, setEditableFields] = useState({
-    piAmount: false,
-    paymentAddress: false,
-    PiAddress: false
-  })
-  const [editedValues, setEditedValues] = useState({
-    piAmount: '',
-    paymentAddress: '',
-    PiAddress: ''
-  })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -40,13 +44,7 @@ export default function SummaryPage() {
             if (data.error) {
               setError(data.error)
             } else {
-              setUser(data)
-              // Initialize edited values with current user data
-              setEditedValues({
-                piAmount: data.piAmount[data.piAmount.length - 1]?.toString() || '',
-                paymentAddress: data.paymentAddress || '',
-                PiAddress: data.PiAddress || ''
-              })
+              setUserData(data)
             }
           })
           .catch((err) => {
@@ -55,54 +53,12 @@ export default function SummaryPage() {
           .finally(() => {
             setLoading(false)
           })
+      } else {
+        setError('No user data available')
+        setLoading(false)
       }
     }
   }, [])
-
-  const handleEdit = (field: keyof typeof editableFields) => {
-    setEditableFields(prev => ({
-      ...prev,
-      [field]: true
-    }))
-  }
-
-  const handleSave = async (field: keyof typeof editableFields) => {
-    setEditableFields(prev => ({
-      ...prev,
-      [field]: false
-    }))
-
-    // Update local user state
-    setUser(prev => ({
-      ...prev,
-      [field]: field === 'piAmount' 
-        ? [...prev.piAmount.slice(0, -1), Number(editedValues.piAmount)]
-        : editedValues[field]
-    }))
-  }
-
-  const handleContinue = async () => {
-    try {
-      const response = await fetch('/api/updateUser', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          telegramId: user.telegramId,
-          piAmount: user.piAmount,
-          paymentAddress: user.paymentAddress,
-          PiAddress: user.PiAddress
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to update user data')
-      
-      router.push('/finalpage')
-    } catch (err) {
-      setError('Failed to update user data')
-    }
-  }
 
   if (loading) {
     return (
@@ -120,143 +76,80 @@ export default function SummaryPage() {
     )
   }
 
-  if (!user) return null
-
-  const latestPiAmount = user.piAmount[user.piAmount.length - 1] || 0
+  const latestPiAmount = userData?.piAmount[userData.piAmount.length - 1] || 0
   const amountToReceive = latestPiAmount * 0.65
 
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Script src="https://kit.fontawesome.com/18e66d329f.js" />
       
-      <div className="w-full custom-purple text-white p-4 flex items-center justify-between shadow-lg">
-        <div></div>
-        <h1 className="text-2xl font-bold">Pi Trader Official</h1>
-        <div></div>
+      {/* Header */}
+      <div className="w-full bg-[#670773] text-white p-4 shadow-lg">
+        <h1 className="text-2xl font-bold text-center">Pi Trader Official</h1>
       </div>
 
-      <div className="container mx-auto p-4 mt-8">
-        <h2 className="text-3xl font-bold text-center custom-purple-text mb-8">Transaction Summary</h2>
-        
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto space-y-6">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8 flex flex-col items-center text-center">
+        {/* Verification Icon */}
+        <div className="w-32 h-32 mb-8 text-[#670773] animate-scale-in">
+          <div className="relative">
+            <i className="fas fa-circle text-[#670773] text-8xl"></i>
+            <i className="fas fa-check absolute text-white text-5xl" style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}></i>
+          </div>
+        </div>
+
+        {/* Transaction Summary */}
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-6 animate-fade-in">
+          <h2 className="text-2xl font-bold text-[#670773] mb-6">Transaction Summary</h2>
+          
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Amount of Pi Sold:</span>
-              {editableFields.piAmount ? (
-                <div className="flex items-center">
-                  <input
-                    type="number"
-                    value={editedValues.piAmount}
-                    onChange={(e) => setEditedValues(prev => ({ ...prev, piAmount: e.target.value }))}
-                    className="border rounded px-2 py-1 w-24"
-                  />
-                  <button
-                    onClick={() => handleSave('piAmount')}
-                    className="ml-2 text-green-600 hover:text-green-800"
-                  >
-                    <i className="fas fa-check"></i>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <span>{latestPiAmount} Pi</span>
-                  <button
-                    onClick={() => handleEdit('piAmount')}
-                    className="ml-2 text-gray-600 hover:text-gray-800"
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
-                </div>
-              )}
+            <div className="flex justify-between items-center border-b pb-2">
+              <span className="text-gray-600">Amount of Pi Sold:</span>
+              <span className="font-semibold text-[#670773]">{latestPiAmount} Pi</span>
             </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Amount to be Received:</span>
-              <span>${amountToReceive.toFixed(2)}</span>
+            
+            <div className="flex justify-between items-center border-b pb-2">
+              <span className="text-gray-600">Amount to be Received:</span>
+              <span className="font-semibold text-[#670773]">${amountToReceive.toFixed(2)}</span>
             </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Payment Receiving Method:</span>
-              <span>{user.paymentMethod}</span>
+            
+            <div className="flex justify-between items-center border-b pb-2">
+              <span className="text-gray-600">Payment Method:</span>
+              <span className="font-semibold text-[#670773]">{userData?.paymentMethod || 'N/A'}</span>
             </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Payment Receiving Address:</span>
-              {editableFields.paymentAddress ? (
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={editedValues.paymentAddress}
-                    onChange={(e) => setEditedValues(prev => ({ ...prev, paymentAddress: e.target.value }))}
-                    className="border rounded px-2 py-1 w-48"
-                  />
-                  <button
-                    onClick={() => handleSave('paymentAddress')}
-                    className="ml-2 text-green-600 hover:text-green-800"
-                  >
-                    <i className="fas fa-check"></i>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <span>{user.paymentAddress}</span>
-                  <button
-                    onClick={() => handleEdit('paymentAddress')}
-                    className="ml-2 text-gray-600 hover:text-gray-800"
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
-                </div>
-              )}
+            
+            <div className="flex justify-between items-center border-b pb-2">
+              <span className="text-gray-600">Payment Address:</span>
+              <span className="font-semibold text-[#670773] break-all text-sm">
+                {userData?.paymentAddress || 'N/A'}
+              </span>
             </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Pi Wallet Address:</span>
-              {editableFields.PiAddress ? (
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={editedValues.PiAddress}
-                    onChange={(e) => setEditedValues(prev => ({ ...prev, PiAddress: e.target.value }))}
-                    className="border rounded px-2 py-1 w-48"
-                  />
-                  <button
-                    onClick={() => handleSave('PiAddress')}
-                    className="ml-2 text-green-600 hover:text-green-800"
-                  >
-                    <i className="fas fa-check"></i>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <span>{user.PiAddress}</span>
-                  <button
-                    onClick={() => handleEdit('PiAddress')}
-                    className="ml-2 text-gray-600 hover:text-gray-800"
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
-                </div>
-              )}
+            
+            <div className="flex justify-between items-center border-b pb-2">
+              <span className="text-gray-600">Pi Wallet Address:</span>
+              <span className="font-semibold text-[#670773] break-all text-sm">
+                {userData?.PiAddress || 'N/A'}
+              </span>
             </div>
           </div>
+        </div>
 
-          <button
-            onClick={handleContinue}
-            className="w-full custom-purple text-white text-xl font-bold py-3 px-6 rounded-full mt-8 shadow-lg hover-scale"
-          >
-            Continue
-          </button>
+        {/* Processing Message */}
+        <div className="mt-8 text-center space-y-2 animate-slide-up">
+          <p className="text-gray-600">
+            The payment process may take 5-8hrs. Wait patiently
+          </p>
+          <p className="text-gray-600">
+            You can check transaction status in menu &gt; Transaction History
+          </p>
         </div>
       </div>
 
       <style jsx>{`
-        .custom-purple {
-          background-color: #670773;
-        }
-        .custom-purple-text {
-          color: #670773;
-        }
         .loading-spinner {
           border: 4px solid rgba(103, 7, 115, 0.1);
           border-left-color: #670773;
@@ -270,14 +163,46 @@ export default function SummaryPage() {
             transform: rotate(360deg);
           }
         }
-        .hover-scale {
-          transition: transform 0.2s ease-out;
+        @keyframes scale-in {
+          0% {
+            opacity: 0;
+            transform: scale(0.5);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
-        .hover-scale:hover {
-          transform: scale(1.05);
+        @keyframes fade-in {
+          0% {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-        .hover-scale:active {
-          transform: scale(0.95);
+        @keyframes slide-up {
+          0% {
+            opacity: 0;
+            transform: translateY(40px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.5s ease-out forwards;
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards 0.3s;
+          opacity: 0;
+        }
+        .animate-slide-up {
+          animation: slide-up 0.5s ease-out forwards 0.6s;
+          opacity: 0;
         }
       `}</style>
     </div>
