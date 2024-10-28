@@ -21,6 +21,7 @@ model User {
   imageUrl       String?  // For temporary storage
   savedImages    String[] @default([])  // For permanent storage array
   piAmount       Int[]    @default([])
+  piAddress      String?  // Added new field for Pi wallet address
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
